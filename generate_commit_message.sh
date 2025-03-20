@@ -58,7 +58,7 @@ Redmine等のチケットと連携している場合はここで紐付けを行�
 
 【例】refs #110 更新SQLの対象カラムに削除フラグが含まれていなかったため追加しました。
 
-<example>タグ内にあなたが出力するべき内容の例を示します。
+<example>タグ内にあなたが出力するべき内容の例を示します。このとき\`\`\`plaintextや\`\`\`markdownなどで「「絶対に」」囲わず、<example>の中身のみを出力してください。
 
 <example>
 feat: ホームページに検索窓を追加
@@ -73,4 +73,6 @@ EOF
 aws bedrock-runtime converse \
 --model-id amazon.nova-pro-v1:0 \
 --messages "[{\"role\":\"user\",\"content\":[{\"text\":$prompt}]},{\"role\":\"user\",\"content\":[{\"text\":$git_diff}]}]" \
---inference-config '{"maxTokens": 512, "temperature": 0.5, "topP": 0.9}' | jq .output.message.content[0].text
+--inference-config '{"maxTokens": 512, "temperature": 0.5, "topP": 0.9}' | jq -r '.output.message.content[0].text'
+
+echo -e $(echo $msg | tr -d '"' | sed 's/^```//')
