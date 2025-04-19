@@ -1,0 +1,31 @@
+# サンプル設定ファイル
+# このファイルを .commit-message-config としてプロジェクトルートに配置するか
+# ${HOME}/.commit-message-config に配置して使用します
+
+# AIプロバイダー設定 (bedrock, openai, anthropic, ollama)
+PROVIDER="bedrock"
+
+# モデルID
+# Bedrock: amazon.nova-pro-v1:0, anthropic.claude-instant-v1, ai21.j2-ultra など
+# OpenAI: gpt-4, gpt-3.5-turbo など
+# Anthropic: claude-3-opus-20240229, claude-3-sonnet-20240229 など
+# Ollama: llama2, mistral, gemma など
+MODEL_ID="amazon.nova-pro-v1:0"
+
+# AWS Bedrock用の設定 (PROVIDERがbedrockの場合に使用)
+AWS_REGION="us-east-1"
+
+# 生成パラメータ
+TEMPERATURE="0.5"  # 生成の温度 (0.0～1.0)
+MAX_TOKENS="512"   # 最大トークン数
+TOP_P="0.9"        # 上位確率 (多様性)
+
+# 言語設定 (ja, en)
+LANGUAGE="ja"
+
+# Ollama用のホスト設定 (PROVIDERがollamaの場合に使用)
+OLLAMA_HOST="http://localhost:11434"
+
+# 以下の環境変数はこのファイルではなく、環境変数として設定することを推奨します
+# OPENAI_API_KEY="your_openai_api_key"
+# ANTHROPIC_API_KEY="your_anthropic_api_key"
