@@ -15,7 +15,7 @@
 - **Git**: バージョン 2.20.0 以上推奨
 - **bash または互換シェル**: スクリプト実行環境
 - **jq**: JSON 処理用（インストールされていない場合は `apt-get install jq` や `brew install jq` でインストール）
-- **curl**: API呼び出し用（ほとんどのシステムにプリインストールされています）
+- **curl**: API呼び出し用（OpenAI、Anthropic、Ollamaプロバイダー使用時に必要）
 
 以下は選択したAIプロバイダーによって必要になります：
 - **AWS CLI と Bedrock アクセス**: Amazon Bedrockを使用する場合
@@ -35,7 +35,7 @@ cd git-commit-message-generator
 2. 設定ファイルを作成します：
 
 ```bash
-cp .commit-message-config.sample .commit-message-config
+cp .commit-message-config.example .commit-message-config
 ```
 
 3. 設定ファイルを編集して、使用するAIプロバイダーやモデルを設定します：
@@ -45,6 +45,7 @@ cp .commit-message-config.sample .commit-message-config
 PROVIDER="bedrock"
 MODEL_ID="amazon.nova-pro-v1:0"
 AWS_REGION="us-east-1"
+# 他の設定パラメータも必要に応じて変更可能
 ```
 
 4. 選択したプロバイダーに応じて必要な認証情報を設定します：
@@ -52,6 +53,22 @@ AWS_REGION="us-east-1"
 - Amazon Bedrock:
   ```bash
   aws configure
+  ```
+  
+- OpenAI:
+  ```bash
+  export OPENAI_API_KEY="your_openai_api_key_here"
+  ```
+  
+- Anthropic:
+  ```bash
+  export ANTHROPIC_API_KEY="your_anthropic_api_key_here"
+  ```
+  
+- Ollama:
+  ```bash
+  # デフォルトでは http://localhost:11434 を使用
+  # リモートサーバーの場合は設定ファイルで OLLAMA_HOST を変更
   ```
 
 - OpenAI API:
@@ -85,6 +102,19 @@ $ git commit -m "$(bash generate_commit_message.sh)"
 [main 3a21f8e] ✨ add: READMEに複数AIプロバイダーのサポートを追加
 
 - Amazon Bedrock, OpenAI, Anthropic, Ollamaの使用方法を記載
+```
+
+#### プロバイダーの一時的な切り替え
+
+コマンドライン上で別のプロバイダーを一時的に使用することも可能です：
+
+```bash
+# OpenAIを一時的に使用
+PROVIDER=openai MODEL_ID=gpt-4 git commit -m "$(bash generate_commit_message.sh)"
+
+# Anthropicを一時的に使用
+PROVIDER=anthropic MODEL_ID=claude-3-sonnet-20240229 git commit -m "$(bash generate_commit_message.sh)"
+```
 - 設定ファイルのサンプルと説明を追加
 - 各プロバイダーごとの認証情報設定手順を明確化
 ```
