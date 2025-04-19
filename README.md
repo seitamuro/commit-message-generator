@@ -35,7 +35,7 @@ cd git-commit-message-generator
 2. 設定ファイルを作成します：
 
 ```bash
-cp .commit-message-config.example .commit-message-config
+cp .commit-message-config.sample .commit-message-config
 ```
 
 3. 設定ファイルを編集して、使用するAIプロバイダーやモデルを設定します：
