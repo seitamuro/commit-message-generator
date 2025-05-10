@@ -1,8 +1,28 @@
 #!/bin/bash
 
+# 設定ファイルを読み込み
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+if [ -f "$script_dir/config.sh" ]; then
+  source "$script_dir/config.sh"
+else
+  # 設定ファイルがない場合はデフォルト値を設定
+  PROVIDER="bedrock"
+  MODEL_ID="amazon.nova-pro-v1:0"
+  AWS_REGION="us-east-1"
+  TEMPERATURE="0.5"
+  MAX_TOKENS="512"
+  TOP_P="0.9"
+  LANGUAGE="ja"
+fi
+
 git_diff=$(git diff HEAD | jq -sR .)
+prompt_lang="日本語"
+if [ "$LANGUAGE" = "en" ]; then
+  prompt_lang="英語"
+fi
+
 prompt=$(cat <<EOF | jq -sR .
-コミットメッセージを日本語で作成してください。このとき、コミットメッセージのみを返してください。コミットメッセージのprefixとして「feat: 新機能の追加」のように変更内容に応じてprefixをつけてください。プレフィックスには<prefix>タグ内の値を利用してください。
+コミットメッセージを${prompt_lang}で作成してください。このとき、コミットメッセージのみを返してください。コミットメッセージのprefixとして「feat: 新機能の追加」のように変更内容に応じてprefixをつけてください。プレフィックスには<prefix>タグ内の値を利用してください。
 <prefix>
   - fix：バグ修正
   - hotfix：クリティカルなバグ修正
@@ -70,9 +90,94 @@ feat: ホームページに検索窓を追加
 EOF
 )
 
-aws bedrock-runtime converse \
---model-id amazon.nova-pro-v1:0 \
---messages "[{\"role\":\"user\",\"content\":[{\"text\":$prompt}]},{\"role\":\"user\",\"content\":[{\"text\":$git_diff}]}]" \
---inference-config '{"maxTokens": 512, "temperature": 0.5, "topP": 0.9}' | jq -r '.output.message.content[0].text'
+# 依存コマンドの確認
+check_dependency() {
+  if ! command -v "$1" &> /dev/null; then
+    echo "エラー: $1 がインストールされていません" >&2
+    exit 1
+  fi
+}
 
-echo -e $(echo $msg | tr -d '"' | sed 's/^```//')
+check_dependency jq
+check_dependency git
+
+# ユーザーに選択されたAIプロバイダーに基づいて処理
+case "$PROVIDER" in
+  bedrock)
+    check_dependency aws
+    msg=$(aws bedrock-runtime converse \
+    --model-id "$MODEL_ID" \
+    --region "$AWS_REGION" \
+    --messages "[{\"role\":\"user\",\"content\":[{\"text\":$prompt}]},{\"role\":\"user\",\"content\":[{\"text\":$git_diff}]}]" \
+    --inference-config "{\"maxTokens\": $MAX_TOKENS, \"temperature\": $TEMPERATURE, \"topP\": $TOP_P}" | jq -r '.output.message.content[0].text')
+    ;;
+    
+  openai)
+    check_dependency curl
+    if [ -z "$OPENAI_API_KEY" ]; then
+      echo "エラー: OPENAI_API_KEYが設定されていません" >&2
+      exit 1
+    fi
+    
+    response=$(curl -s -X POST "https://api.openai.com/v1/chat/completions" \
+      -H "Content-Type: application/json" \
+      -H "Authorization: Bearer $OPENAI_API_KEY" \
+      -d "{
+        \"model\": \"$MODEL_ID\",
+        \"messages\": [
+          {\"role\": \"user\", \"content\": $(echo "$prompt" | jq -R .)},
+          {\"role\": \"user\", \"content\": $(echo "$git_diff" | jq -R .)}
+        ],
+        \"temperature\": $TEMPERATURE,
+        \"max_tokens\": $MAX_TOKENS
+      }")
+    msg=$(echo "$response" | jq -r '.choices[0].message.content')
+    ;;
+    
+  anthropic)
+    check_dependency curl
+    if [ -z "$ANTHROPIC_API_KEY" ]; then
+      echo "エラー: ANTHROPIC_API_KEYが設定されていません" >&2
+      exit 1
+    fi
+    
+    response=$(curl -s -X POST "https://api.anthropic.com/v1/messages" \
+      -H "Content-Type: application/json" \
+      -H "x-api-key: $ANTHROPIC_API_KEY" \
+      -H "anthropic-version: 2023-06-01" \
+      -d "{
+        \"model\": \"$MODEL_ID\",
+        \"messages\": [
+          {\"role\": \"user\", \"content\": $(echo "$prompt $git_diff" | jq -R .)}
+        ],
+        \"max_tokens\": $MAX_TOKENS,
+        \"temperature\": $TEMPERATURE
+      }")
+    msg=$(echo "$response" | jq -r '.content[0].text')
+    ;;
+    
+  ollama)
+    check_dependency curl
+    if [ -z "$OLLAMA_HOST" ]; then
+      OLLAMA_HOST="http://localhost:11434"
+    fi
+    
+    response=$(curl -s -X POST "$OLLAMA_HOST/api/generate" \
+      -H "Content-Type: application/json" \
+      -d "{
+        \"model\": \"$MODEL_ID\",
+        \"prompt\": $(echo "$prompt\n\n$git_diff" | jq -R .),
+        \"temperature\": $TEMPERATURE,
+        \"stream\": false
+      }")
+    msg=$(echo "$response" | jq -r '.response')
+    ;;
+    
+  *)
+    echo "エラー: サポートされていないAIプロバイダーです: $PROVIDER" >&2
+    exit 1
+    ;;
+esac
+
+# 回答からMarkdownの記号などを除去する
+echo -e "$(echo "$msg" | sed -E 's/```(plaintext|markdown|text|diff|bash|shell)?//g' | sed 's/```//g' | tr -d '"')"
